@@ -1,6 +1,7 @@
 module Morphir.IR.Distribution exposing
     ( Distribution(..)
     , lookupModuleSpecification, lookupTypeSpecification, lookupValueSpecification, lookupBaseTypeName, lookupValueDefinition
+    , lookupPackageSpecification, lookupPackageName
     , resolveTypeReference, resolveRecordConstructors
     )
 
@@ -22,6 +23,7 @@ information:
 # Lookups
 
 @docs lookupModuleSpecification, lookupTypeSpecification, lookupValueSpecification, lookupBaseTypeName, lookupValueDefinition
+@docs lookupPackageSpecification, lookupPackageName
 
 
 # Utilities
@@ -109,10 +111,10 @@ resolveTypeReference (( packageName, moduleName, localName ) as fQName) typeArgs
                         |> Ok
 
                 Type.OpaqueTypeSpecification _ ->
-                    Ok (Type.Reference () fQName typeArgs)
+                    Err (String.concat [ "Opaque types cannot be resolved: ", fQName |> FQName.toString ])
 
                 Type.CustomTypeSpecification _ _ ->
-                    Ok (Type.Reference () fQName typeArgs)
+                    Err (String.concat [ "Custom types cannot be resolved: ", fQName |> FQName.toString ])
 
         Nothing ->
             Err (String.concat [ "Type specification not found: ", fQName |> FQName.toString ])
@@ -174,3 +176,23 @@ lookupValueDefinition (QName moduleName localName) distribution =
             packageDef
                 |> lookupModuleDefinition moduleName
                 |> Maybe.andThen (Module.lookupValueDefinition localName)
+
+
+{-| Get the package specification of a distribution.
+-}
+lookupPackageSpecification : Distribution -> Package.Specification ()
+lookupPackageSpecification distribution =
+    case distribution of
+        Library _ _ packageDef ->
+            packageDef
+                |> Package.definitionToSpecificationWithPrivate
+                |> Package.mapSpecificationAttributes (\_ -> ())
+
+
+{-| Get the package name of a distribution.
+-}
+lookupPackageName : Distribution -> PackageName
+lookupPackageName distribution =
+    case distribution of
+        Library packageName _ _ ->
+            packageName

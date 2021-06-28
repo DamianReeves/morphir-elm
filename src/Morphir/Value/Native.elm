@@ -1,7 +1,9 @@
 module Morphir.Value.Native exposing
     ( Function
     , Eval
-    , unaryLazy, unaryStrict, binaryLazy, binaryStrict, mapLiteral
+    , unaryLazy, unaryStrict, binaryLazy, binaryStrict, boolLiteral, charLiteral, eval1, eval2
+    , floatLiteral, intLiteral, oneOf, stringLiteral
+    , decodeFun1, decodeList, decodeLiteral, decodeRaw, encodeList, encodeLiteral, encodeRaw, encodeResultList
     )
 
 {-| This module contains an API and some tools to implement native functions. Native functions are functions that are
@@ -34,12 +36,14 @@ example the predicate in a `filter` will need to be evaluated on each item in th
 
 Various utilities to help with implementing native functions.
 
-@docs unaryLazy, unaryStrict, binaryLazy, binaryStrict, mapLiteral
+@docs unaryLazy, unaryStrict, binaryLazy, binaryStrict, boolLiteral, charLiteral, eval1, eval2, expectFun1
+@docs expectList, expectLiteral, floatLiteral, intLiteral, oneOf, returnList, returnLiteral, returnResultList, stringLiteral
 
 -}
 
-import Morphir.IR.Literal exposing (Literal)
-import Morphir.IR.Value as Value exposing (Value)
+import Morphir.IR.Literal exposing (Literal(..))
+import Morphir.IR.Value as Value exposing (RawValue, Value)
+import Morphir.ListOfResults as ListOfResults
 import Morphir.Value.Error exposing (Error(..))
 
 
@@ -50,13 +54,13 @@ import Morphir.Value.Error exposing (Error(..))
 
 -}
 type alias Function =
-    Eval -> List (Value () ()) -> Result Error (Value () ())
+    Eval -> List RawValue -> Result Error RawValue
 
 
 {-| Type that captures a function used for evaluation. This will usually backed by the interpreter.
 -}
 type alias Eval =
-    Value () () -> Result Error (Value () ())
+    RawValue -> Result Error RawValue
 
 
 {-| Create a native function that takes exactly one argument. Let the implementor decide when to evaluate the argument.
@@ -73,7 +77,7 @@ type alias Eval =
             )
 
 -}
-unaryLazy : (Eval -> Value () () -> Result Error (Value () ())) -> Function
+unaryLazy : (Eval -> RawValue -> Result Error RawValue) -> Function
 unaryLazy f =
     \eval args ->
         case args of
@@ -95,7 +99,7 @@ function.
             )
 
 -}
-unaryStrict : (Eval -> Value () () -> Result Error (Value () ())) -> Function
+unaryStrict : (Eval -> RawValue -> Result Error RawValue) -> Function
 unaryStrict f =
     unaryLazy (\eval arg -> eval arg |> Result.andThen (f eval))
 
@@ -118,7 +122,7 @@ unaryStrict f =
             )
 
 -}
-binaryLazy : (Eval -> Value () () -> Value () () -> Result Error (Value () ())) -> Function
+binaryLazy : (Eval -> RawValue -> RawValue -> Result Error RawValue) -> Function
 binaryLazy f =
     \eval args ->
         case args of
@@ -140,7 +144,7 @@ function.
             )
 
 -}
-binaryStrict : (Value () () -> Value () () -> Result Error (Value () ())) -> Function
+binaryStrict : (RawValue -> RawValue -> Result Error RawValue) -> Function
 binaryStrict f =
     binaryLazy
         (\eval arg1 arg2 ->
@@ -153,14 +157,188 @@ binaryStrict f =
         )
 
 
-{-| Create a native function that maps one literal value to another literal value.
--}
-mapLiteral : (Literal -> Result Error Literal) -> Eval -> Value () () -> Result Error (Value () ())
-mapLiteral f eval value =
-    case value of
-        Value.Literal a lit ->
-            f lit
-                |> Result.map (Value.Literal a)
+type alias Decoder a =
+    Eval -> RawValue -> Result Error a
+
+
+type alias Encode a =
+    a -> Result Error RawValue
+
+
+decodeRaw : Decoder RawValue
+decodeRaw eval value =
+    eval value
+
+
+encodeRaw : Encode RawValue
+encodeRaw value =
+    Ok value
+
+
+{-| -}
+decodeLiteral : (Literal -> Result Error a) -> Decoder a
+decodeLiteral decodeLit eval value =
+    case eval value of
+        Ok (Value.Literal _ lit) ->
+            decodeLit lit
+
+        Ok _ ->
+            Err (ExpectedLiteral value)
+
+        Err error ->
+            Err error
+
+
+{-| -}
+decodeList : Decoder a -> Decoder (List a)
+decodeList decodeItem eval value =
+    case eval value of
+        Ok (Value.List _ values) ->
+            values
+                |> List.map (decodeItem eval)
+                |> ListOfResults.liftFirstError
+
+        Ok _ ->
+            Err (ExpectedLiteral value)
+
+        Err error ->
+            Err error
+
+
+{-| -}
+decodeFun1 : Encode a -> Decoder r -> Decoder (a -> Result Error r)
+decodeFun1 encodeA decodeR eval fun =
+    Ok
+        (\a ->
+            encodeA a
+                |> Result.andThen
+                    (\arg -> eval (Value.Apply () fun arg))
+                |> Result.andThen (decodeR eval)
+        )
+
+
+{-| -}
+boolLiteral : Literal -> Result Error Bool
+boolLiteral lit =
+    case lit of
+        BoolLiteral v ->
+            Ok v
 
         _ ->
-            Err (ExpectedLiteral value)
+            Err (ExpectedBoolLiteral lit)
+
+
+{-| -}
+intLiteral : Literal -> Result Error Int
+intLiteral lit =
+    case lit of
+        IntLiteral v ->
+            Ok v
+
+        _ ->
+            Err (ExpectedBoolLiteral lit)
+
+
+{-| -}
+floatLiteral : Literal -> Result Error Float
+floatLiteral lit =
+    case lit of
+        FloatLiteral v ->
+            Ok v
+
+        _ ->
+            Err (ExpectedBoolLiteral lit)
+
+
+{-| -}
+charLiteral : Literal -> Result Error Char
+charLiteral lit =
+    case lit of
+        CharLiteral v ->
+            Ok v
+
+        _ ->
+            Err (ExpectedBoolLiteral lit)
+
+
+{-| -}
+stringLiteral : Literal -> Result Error String
+stringLiteral lit =
+    case lit of
+        StringLiteral v ->
+            Ok v
+
+        _ ->
+            Err (ExpectedBoolLiteral lit)
+
+
+{-| -}
+encodeLiteral : (a -> Literal) -> a -> Result Error RawValue
+encodeLiteral toLit a =
+    Ok (Value.Literal () (toLit a))
+
+
+{-| -}
+encodeResultList : List (Result Error RawValue) -> Result Error RawValue
+encodeResultList listOfValueResults =
+    listOfValueResults
+        |> ListOfResults.liftFirstError
+        |> Result.map (Value.List ())
+
+
+{-| -}
+encodeList : List RawValue -> Result Error RawValue
+encodeList list =
+    Ok (Value.List () list)
+
+
+{-| -}
+eval1 : (a -> r) -> Decoder a -> Encode r -> Function
+eval1 f decodeA encodeR eval args =
+    case args of
+        [ arg1 ] ->
+            Result.andThen
+                (\a ->
+                    encodeR (f a)
+                )
+                (decodeA eval arg1)
+
+        _ ->
+            Err (UnexpectedArguments args)
+
+
+{-| -}
+eval2 : (a -> b -> r) -> Decoder a -> Decoder b -> Encode r -> Function
+eval2 f decodeA decodeB encodeR eval args =
+    case args of
+        [ arg1, arg2 ] ->
+            Result.andThen identity
+                (Result.map2
+                    (\a b ->
+                        encodeR (f a b)
+                    )
+                    (decodeA eval arg1)
+                    (decodeB eval arg2)
+                )
+
+        _ ->
+            Err (UnexpectedArguments args)
+
+
+{-| -}
+oneOf : List Function -> Function
+oneOf funs =
+    funs
+        |> List.foldl
+            (\nextFun funSoFar ->
+                \eval args ->
+                    case funSoFar eval args of
+                        Ok result ->
+                            Ok result
+
+                        Err _ ->
+                            nextFun eval args
+            )
+            (\eval args ->
+                Err NotImplemented
+            )

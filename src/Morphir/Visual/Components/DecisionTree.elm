@@ -5,21 +5,21 @@ import Element.Border as Border
 import Element.Font as Font
 import Html exposing (Html)
 import Html.Attributes
-import Morphir.IR.Value exposing (RawValue, TypedValue)
 import Morphir.Visual.Common exposing (element)
 import Morphir.Visual.Config exposing (Config)
 import Morphir.Visual.Theme exposing (mediumPadding, mediumSpacing, smallSpacing)
+import Morphir.Visual.VisualTypedValue exposing (VisualTypedValue)
 import Svg
 import Svg.Attributes
 
 
 type Node
     = Branch BranchNode
-    | Leaf TypedValue
+    | Leaf VisualTypedValue
 
 
 type alias BranchNode =
-    { condition : TypedValue
+    { condition : VisualTypedValue
     , conditionValue : Maybe Bool
     , thenBranch : Node
     , elseBranch : Node
@@ -47,8 +47,8 @@ type HighlightState
     | NotHighlighted
 
 
-highlighStateToColor : HighlightState -> Color
-highlighStateToColor state =
+highlightStateToColor : HighlightState -> Color
+highlightStateToColor state =
     case state of
         Highlighted bool ->
             if bool then
@@ -61,8 +61,18 @@ highlighStateToColor state =
             highlightColor.default
 
 
-highlighStateToBorderWidth : HighlightState -> Int
-highlighStateToBorderWidth state =
+highlightStateToBackground : HighlightState -> String
+highlightStateToBackground state =
+    case state of
+        NotHighlighted ->
+            "repeating-linear-gradient( 45deg, #565656, #9a9595 10px, #656565 10px, #797979 20px )"
+
+        _ ->
+            "none"
+
+
+highlightStateToBorderWidth : HighlightState -> Int
+highlightStateToBorderWidth state =
     case state of
         Highlighted _ ->
             4
@@ -71,8 +81,8 @@ highlighStateToBorderWidth state =
             2
 
 
-highlighStateToFontWeight : HighlightState -> Attribute msg
-highlighStateToFontWeight state =
+highlightStateToFontWeight : HighlightState -> Attribute msg
+highlightStateToFontWeight state =
     case state of
         Highlighted _ ->
             Font.bold
@@ -91,12 +101,12 @@ toCssColor (Color r g b) =
     String.concat [ "rgb(", String.fromInt r, ",", String.fromInt g, ",", String.fromInt b, ")" ]
 
 
-layout : Config msg -> (TypedValue -> Element msg) -> Node -> Element msg
+layout : Config msg -> (VisualTypedValue -> Element msg) -> Node -> Element msg
 layout config viewValue rootNode =
     layoutHelp config NotHighlighted viewValue rootNode
 
 
-layoutHelp : Config msg -> HighlightState -> (TypedValue -> Element msg) -> Node -> Element msg
+layoutHelp : Config msg -> HighlightState -> (VisualTypedValue -> Element msg) -> Node -> Element msg
 layoutHelp config highlightState viewValue rootNode =
     let
         depthOf : (BranchNode -> Node) -> Node -> Int
@@ -150,24 +160,24 @@ layoutHelp config highlightState viewValue rootNode =
             horizontalLayout
                 config
                 (el
-                    [ conditionState |> highlighStateToBorderWidth |> Border.width
+                    [ conditionState |> highlightStateToBorderWidth |> Border.width
                     , Border.rounded 6
-                    , Border.color (conditionState |> highlighStateToColor |> toElementColor)
+                    , Border.color (conditionState |> highlightStateToColor |> toElementColor)
                     , mediumPadding config.state.theme |> padding
                     ]
                     (viewValue branch.condition)
                 )
                 (el
-                    [ Font.color (thenState |> highlighStateToColor |> toElementColor)
-                    , thenState |> highlighStateToFontWeight
+                    [ Font.color (thenState |> highlightStateToColor |> toElementColor)
+                    , thenState |> highlightStateToFontWeight
                     ]
                     (text "Yes")
                 )
                 thenState
                 (layoutHelp config thenState viewValue branch.thenBranch)
                 (el
-                    [ Font.color (elseState |> highlighStateToColor |> toElementColor)
-                    , elseState |> highlighStateToFontWeight
+                    [ Font.color (elseState |> highlightStateToColor |> toElementColor)
+                    , elseState |> highlightStateToFontWeight
                     ]
                     (text "No")
                 )
@@ -176,9 +186,9 @@ layoutHelp config highlightState viewValue rootNode =
 
         Leaf value ->
             el
-                [ highlightState |> highlighStateToBorderWidth |> Border.width
+                [ highlightState |> highlightStateToBorderWidth |> Border.width
                 , Border.rounded 6
-                , Border.color (highlightState |> highlighStateToColor |> toElementColor)
+                , Border.color (highlightState |> highlightStateToColor |> toElementColor)
                 , mediumPadding config.state.theme |> padding
                 ]
                 (viewValue value)
@@ -302,7 +312,7 @@ rightArrow config highlightState =
                 ]
                 [ Html.tr []
                     [ Html.td
-                        [ Html.Attributes.style "border-bottom" (String.concat [ "solid ", highlightState |> highlighStateToBorderWidth |> String.fromInt, "px ", highlightState |> highlighStateToColor |> toCssColor ])
+                        [ Html.Attributes.style "border-bottom" (String.concat [ "solid ", highlightState |> highlightStateToBorderWidth |> String.fromInt, "px ", highlightState |> highlightStateToColor |> toCssColor ])
                         , Html.Attributes.style "width" "100%"
                         ]
                         []
@@ -335,7 +345,7 @@ downArrow config highlightState =
                 , Html.Attributes.style "height" "100%"
                 ]
                 [ Html.tr [ Html.Attributes.style "height" "100%" ]
-                    [ Html.td [ Html.Attributes.style "border-right" (String.concat [ "solid ", highlightState |> highlighStateToBorderWidth |> String.fromInt, "px ", highlightState |> highlighStateToColor |> toCssColor ]) ] []
+                    [ Html.td [ Html.Attributes.style "border-right" (String.concat [ "solid ", highlightState |> highlightStateToBorderWidth |> String.fromInt, "px ", highlightState |> highlightStateToColor |> toCssColor ]) ] []
                     , Html.td [] []
                     ]
                 , Html.tr []
@@ -374,7 +384,7 @@ rightArrowHead config highlightState =
         ]
         [ Svg.polygon
             [ Svg.Attributes.points "0,0 200,100 0,200"
-            , Svg.Attributes.style ("fill:" ++ (highlightState |> highlighStateToColor |> toCssColor))
+            , Svg.Attributes.style ("fill:" ++ (highlightState |> highlightStateToColor |> toCssColor))
             ]
             []
         ]
@@ -401,7 +411,7 @@ downArrowHead config highlightState =
         ]
         [ Svg.polygon
             [ Svg.Attributes.points "0,0 100,200 200,0"
-            , Svg.Attributes.style ("fill:" ++ (highlightState |> highlighStateToColor |> toCssColor))
+            , Svg.Attributes.style ("fill:" ++ (highlightState |> highlightStateToColor |> toCssColor))
             ]
             []
         ]

@@ -9,13 +9,14 @@ import Morphir.IR.Type as Type exposing (Type)
 import Morphir.IR.Value as Value exposing (Value)
 import Morphir.Visual.Config exposing (Config)
 import Morphir.Visual.Theme exposing (smallPadding, smallSpacing)
+import Morphir.Visual.VisualTypedValue exposing (VisualTypedValue)
 
 
-view : Config msg -> (Value () (Type ()) -> Element msg) -> Type () -> List (Value () (Type ())) -> Element msg
+view : Config msg -> (VisualTypedValue -> Element msg) -> Type () -> List VisualTypedValue -> Element msg
 view config viewValue itemType items =
     if List.isEmpty items then
         el []
-            (text "[]")
+            (text "[ ]")
 
     else
         case itemType of
@@ -69,18 +70,22 @@ view config viewValue itemType items =
                     Ok resolvedItemType ->
                         view config viewValue resolvedItemType items
 
-                    Err error ->
-                        Element.text error
+                    Err _ ->
+                        viewAsList config viewValue items
 
             _ ->
-                table
-                    [ smallSpacing config.state.theme |> spacing
-                    ]
-                    { data = items
-                    , columns =
-                        [ { header = none
-                          , width = fill
-                          , view = viewValue
-                          }
-                        ]
-                    }
+                viewAsList config viewValue items
+
+
+viewAsList config viewValue items =
+    table
+        [ smallSpacing config.state.theme |> spacing
+        ]
+        { data = items
+        , columns =
+            [ { header = none
+              , width = fill
+              , view = viewValue
+              }
+            ]
+        }

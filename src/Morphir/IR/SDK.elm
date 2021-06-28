@@ -18,9 +18,11 @@
 module Morphir.IR.SDK exposing (..)
 
 import Dict exposing (Dict)
+import Morphir.IR.FQName exposing (FQName)
 import Morphir.IR.Name as Name exposing (Name)
 import Morphir.IR.Package as Package exposing (PackageName)
 import Morphir.IR.Path as Path exposing (Path)
+import Morphir.IR.SDK.Aggregate as Aggregate
 import Morphir.IR.SDK.Basics as Basics
 import Morphir.IR.SDK.Char as Char
 import Morphir.IR.SDK.Decimal as Decimal
@@ -68,14 +70,15 @@ packageSpec =
             , ( [ [ "int" ] ], Decimal.moduleSpec )
             , ( [ [ "number" ] ], Number.moduleSpec )
             , ( [ [ "key" ] ], Key.moduleSpec )
+            , ( [ [ "aggregate" ] ], Aggregate.moduleSpec )
             ]
     }
 
 
-nativeFunctions : Dict ( Path, Path, Name ) Native.Function
+nativeFunctions : Dict FQName Native.Function
 nativeFunctions =
     let
-        moduleFunctions : String -> List ( String, Native.Function ) -> Dict ( Path, Path, Name ) Native.Function
+        moduleFunctions : String -> List ( String, Native.Function ) -> Dict FQName Native.Function
         moduleFunctions moduleName functionsByName =
             functionsByName
                 |> List.map
