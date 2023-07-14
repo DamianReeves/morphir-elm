@@ -75,6 +75,9 @@ root directory with the following structure:
     "exposedModules": [
         "Foo",
         "Bar"
+    ],
+    "localDependencies" : [
+      "node_modules/my-company/reference-model/morphir-ir.json"
     ]
 }
 ```
@@ -85,6 +88,7 @@ under that or in submodules.
 * **sourceDirectory** - The directory where your Elm sources are located.
 * **exposedModules** - The list of modules in the public interface of the package. Module names should exclude the 
 common package prefix. In the above example `Foo` refers to the Elm module `My.Package.Foo`. 
+* **localDependencies** - An optional list of local dependencies. These dependencies are other Morphir models (as shown above models are referenced by linking to the morphir-ir.json file for that dependent model).
   
 #### Examples
 
