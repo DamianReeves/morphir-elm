@@ -1,23 +1,29 @@
-const { series, parallel, src, dest } = require('gulp');
-const concat = require('gulp-concat');
-const os = require('os')
-const path = require('path')
-const util = require('util')
-const fs = require('fs')
-const tmp = require('tmp')
-const git = require('isomorphic-git')
-const { request: delegate } = require('isomorphic-git/http/node')
-const { HttpProxyAgent, HttpsProxyAgent } = require('hpagent')
-const del = require('del')
-const elmMake = require('node-elm-compiler').compile
-const execa = require('execa');
-const shell = require('shelljs')
-const mocha = require('gulp-mocha');
-const ts = require('gulp-typescript');
-const { isExpressionWithTypeArguments } = require('typescript');
+import { series, parallel, src, dest } from 'gulp';
+import concat from 'gulp-concat';
+import os from 'os';
+import path from 'path';
+import util from 'util';
+import fs from 'fs';
+import tmp from 'tmp';
+import git from 'isomorphic-git';
+import { request as delegate } from 'isomorphic-git/http/node/index.js';
+import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent';
+import del from 'del';
+import execa from 'execa';
+import shell from 'shelljs';
+import mocha from 'gulp-mocha';
+import yn from 'yn';
+import ts from 'gulp-typescript';
+import typescript from 'typescript';
+const { isExpressionWithTypeArguments } = typescript;
+
+import elmCompiler from 'node-elm-compiler';
+const elmMake = elmCompiler.compile;
 const mainTsProject = ts.createProject('./tsconfig.json')
 const cliTsProject = ts.createProject('./cli2/tsconfig.json')
 const readFile = util.promisify(fs.readFile)
+
+const useShelm =  yn(process.env.USE_SHELM) || false;
 
 async function request ({ url, method, headers, body }) {
     const proxy = url.startsWith('https:')
@@ -36,7 +42,11 @@ const config = {
 
 const stdio = 'inherit';
 
-async function clean() {
+export async function troubleshoot() {
+    console.log(`Use shelm: ${useShelm}`);
+}
+
+export async function clean() {
     del(['tests-integration/reference-model/Dockerfile'])
     return del(['dist'])
 }
@@ -69,7 +79,7 @@ function make(rootDir, source, target) {
     return elmMake([source], { cwd: path.join(process.cwd(), rootDir), output: target }) // // nosemgrep : path-join-resolve-traversal
 }
 
-function makeCLI() {
+export function makeCLI() {
     return make('cli', 'src/Morphir/Elm/CLI.elm', 'Morphir.Elm.CLI.js')
 }
 
@@ -77,7 +87,7 @@ function makeCLI2() {
     return make('cli2', 'src/Morphir/Elm/CLI.elm', 'Morphir.Elm.CLI.js')
 }
 
-function makeDevCLI() {
+export function makeDevCLI() {
     return make('cli', 'src/Morphir/Elm/DevCLI.elm', 'Morphir.Elm.DevCLI.js')
 }
 
@@ -101,7 +111,7 @@ async function makeComponents() {
     return src(['./cli/web/insight.js', './cli/web/morphir-insight-element.js']).pipe(concat('insight.js')).pipe(dest('./cli/web/'))
 }
 
-const buildCLI2 =
+export const buildCLI2 =
     parallel(
         compileCli2Ts,
         makeCLI2
@@ -121,7 +131,7 @@ const buildMorphirAPI2 = async ()=>{
 
 }
 
-const build =
+export const build =
     series(
         checkElmDocs,
         makeCLI,
@@ -218,7 +228,7 @@ async function compileCli2Ts() {
 }
 
 
-async function compileMain2Ts() {
+export async function compileMain2Ts() {
     src('./lib/main.ts').pipe(cliTsProject()).pipe(dest('./cli2/lib/main.js'))
 }
 
@@ -364,14 +374,14 @@ async function testCreateCSV(cb) {
     }
 }
 
-testIntegrationSpark = series(
+export const testIntegrationSpark = series(
     testIntegrationMakeSpark,
     testIntegrationGenSpark,
     testIntegrationBuildSpark,
     testIntegrationTestSpark,
-)
+);
 
-testIntegration = series(
+export const testIntegration = series(
     testIntegrationClean,
     testIntegrationMake,
     testCreateCSV,
@@ -388,7 +398,7 @@ testIntegration = series(
         ),
     ),testIntegrationDockerize,
      testIntegrationJsonSchemaGen
-)
+);
 
 
 async function testMorphirIRMake(cb) {
@@ -411,7 +421,7 @@ function testMorphirIRTestTypeScript(cb) {
 }
 
 // Make sure all dependencies are permitted in highly-restricted environments as well
-async function checkPackageLockJson() {
+export async function checkPackageLockJson() {
     const packageLockJson = JSON.parse((await readFile('package-lock.json')).toString())
     const hasRuntimeDependencyOnPackage = (packageName) => {
         const runtimeDependencyInPackages =
@@ -429,39 +439,27 @@ async function checkPackageLockJson() {
     }
 }
 
-testMorphirIR = series(
+export const testMorphirIR = series(
     testMorphirIRMake,
     testMorphirIRGenTypeScript,
     testMorphirIRTestTypeScript,
-)
+);
+
+export const testMorphirIRTypeScript = testMorphirIR;
 
 
-const test =
+export const test =
     parallel(
         testUnit,
         testIntegration,
         // testMorphirIR,
     )
 
-const csvfiles = series(
+export const csvfiles = series(
     testCreateCSV,
-)
+);
 
-exports.clean = clean;
-exports.makeCLI = makeCLI;
-exports.makeDevCLI = makeDevCLI;
-exports.buildCLI2 = buildCLI2;
-exports.compileMain2Ts = compileMain2Ts;
-exports.build = build;
-exports.test = test;
-exports.csvfiles = csvfiles;
-exports.testIntegration = testIntegration;
-exports.testIntegrationSpark = testIntegrationSpark;
-exports.testMorphirIR = testMorphirIR;
-exports.testMorphirIRTypeScript = testMorphirIR;
-exports.checkPackageLockJson = checkPackageLockJson;
-exports.default =
-    series(
+export default series(
         clean,
         checkPackageLockJson,
         series(

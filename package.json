@@ -78,9 +78,8 @@
     "elm-doc-preview": "^5.0.5",
     "elm-format": "^0.8.5",
     "elm-test": "^0.19.1-revision6",
-    "elm-tooling": "^1.15.0",
     "execa": "^5.1.1",
-    "gulp": "^4.0.2",
+    "gulp": "^5.0.0",
     "gulp-concat": "^2.6.1",
     "gulp-mocha": "^8.0.0",
     "gulp-typescript": "^6.0.0-alpha.1",
@@ -114,6 +113,7 @@
     "prettier": "^2.4.1",
     "vis-network": "^9.1.2",
     "whatwg-encoding": "^3.1.1",
+    "yn": "^5.0.0",
     "zod": "^3.23.8"
   }
 }
