@@ -17,8 +17,7 @@ import ts from 'gulp-typescript';
 import typescript from 'typescript';
 const { isExpressionWithTypeArguments } = typescript;
 
-import elmCompiler from 'node-elm-compiler';
-const elmMake = elmCompiler.compile;
+import { elmMake, make } from './scripts/elm.mjs';
 const mainTsProject = ts.createProject('./tsconfig.json')
 const cliTsProject = ts.createProject('./cli2/tsconfig.json')
 const readFile = util.promisify(fs.readFile)
@@ -75,24 +74,20 @@ function checkElmDocs() {
     return elmMake([], { docs: "docs.json" })
 }
 
-function make(rootDir, source, target) {
-    return elmMake([source], { cwd: path.join(process.cwd(), rootDir), output: target }) // // nosemgrep : path-join-resolve-traversal
-}
-
 export function makeCLI() {
-    return make('cli', 'src/Morphir/Elm/CLI.elm', 'Morphir.Elm.CLI.js')
+    return make('cli', 'src/Morphir/Elm/CLI.elm', 'Morphir.Elm.CLI.js', {useShelm: useShelm})
 }
 
 function makeCLI2() {
-    return make('cli2', 'src/Morphir/Elm/CLI.elm', 'Morphir.Elm.CLI.js')
+    return make('cli2', 'src/Morphir/Elm/CLI.elm', 'Morphir.Elm.CLI.js', {useShelm: useShelm})
 }
 
 export function makeDevCLI() {
-    return make('cli', 'src/Morphir/Elm/DevCLI.elm', 'Morphir.Elm.DevCLI.js')
+    return make('cli', 'src/Morphir/Elm/DevCLI.elm', 'Morphir.Elm.DevCLI.js', {useShelm: useShelm})
 }
 
 function makeDevServer() {
-    return make('cli', 'src/Morphir/Web/DevelopApp.elm', 'web/index.js')
+    return make('cli', 'src/Morphir/Web/DevelopApp.elm', 'web/index.js', {useShelm: useShelm})
 }
 
 function makeDevServerAPI() {
